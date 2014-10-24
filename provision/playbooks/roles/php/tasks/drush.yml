@@ -1,0 +1,85 @@
+---
+- name: PHP | Install Composer
+  shell: curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer creates=/usr/local/bin/composer
+  tags: laravel
+  sudo: true
+
+- name: Drush | Check if Drush is installed
+  raw: drush --version
+  register: drush_installed
+  ignore_errors: true
+  tags: drush
+
+- name: Drush | install drush via composer
+  command: composer global require drush/drush:dev-master
+  when: drush_installed.stdout.find('command not found') != -1
+  tags: drush
+
+- name: Drush | set drush to executable
+  command: chmod u+x drush chdir=/home/{{ user }}/.composer/vendor/drush/drush
+  when: drush_installed.stdout.find('command not found') != -1
+  tags: drush
+
+- name: Drush | link up the drush command so everyone can run it
+  file: src=/home/{{ user }}/.composer/vendor/drush/drush/drush dest=/usr/bin/drush state=link
+  when: drush_installed.stdout.find('command not found') != -1
+  tags: drush
+  sudo: true
+
+- name: Drush | run drush once as current user to finalise install
+  command: drush
+  when: drush_installed.stdout.find('command not found') != -1
+  tags: drush
+
+- name: Drush | Check if hacked! is installed
+  raw: ls ~/.drush/hacked
+  register: hacked_installed
+  ignore_errors: true
+  tags: drush
+
+- name: Drush | download the hacked! module
+  command: drush dl hacked --yes chdir=/home/{{ user }}/.drush creates=/home/{{ user }}/.drush/hacked
+  when: hacked_installed.stdout.find('No such file or directory') != -1
+  tags: drush
+
+- name: Drush | Check if coder is installed
+  raw: ls ~/.drush/coder
+  register: coder_installed
+  ignore_errors: true
+  tags: drush
+
+- name: Drush | download the Coder module
+  command: drush dl coder --yes chdir=/home/{{ user }}/.drush creates=/home/{{ user }}/.drush/coder
+  when: coder_installed.stdout.find('No such file or directory') != -1
+  tags: drush
+
+- name: Drush | Check if Registry Rebuild is installed
+  raw: ls ~/.drush/registry_rebuild
+  register: registry_rebuild_installed
+  ignore_errors: true
+  tags: drush
+
+- name: Drush | download the Registry Rebuild module
+  command: drush dl registry_rebuild --yes
+  when: registry_rebuild_installed.stdout.find('No such file or directory') != -1
+  tags: drush
+
+- name: Drush | Check if Terminus is installed
+  raw: ls ~/.drush/terminus
+  register: terminus_installed
+  ignore_errors: true
+  tags: drush
+
+- name: Drush | download Terminus for Pantheon
+  git: repo=https://github.com/pantheon-systems/terminus.git dest=/home/{{ user }}/.drush/terminus
+  when: terminus_installed.stdout.find('No such file or directory') != -1
+  tags: drush
+
+- name: Drush | download Terminus dependencies
+  command: composer update --no-dev chdir=/home/{{ user }}/.drush/terminus
+  when: terminus_installed.stdout.find('No such file or directory') != -1
+  tags: drush
+
+- name: Drush | clear drush cache
+  command: drush cc all
+  tags: drush
